@@ -1,5 +1,5 @@
 #### worker_redis.py
-(Waiting instructions done.)
+(Waiting instructions done.)  
 Usage:
 ```python
 asyncio def sync_wallet():
