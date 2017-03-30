@@ -5,7 +5,6 @@ import logging
 import copy
 import sys
 import time
-from im.argparser import args
 import json
 
 BLACK = 10001
