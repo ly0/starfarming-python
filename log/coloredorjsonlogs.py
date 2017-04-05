@@ -18,26 +18,48 @@ WHITE = 10008
 HTTP_RESP = 20000
 
 
-def _log_patch(self, level, msg, args, exc_info=None, extra=None, stack_info=False, **kwargs):
-    from logging import _srcfile
-    sinfo = None
-    if _srcfile:
-        try:
-            fn, lno, func, sinfo = self.findCaller(stack_info)
-        except ValueError:  # pragma: no cover
-            fn, lno, func = "(unknown file)", 0, "(unknown function)"
-    else:  # pragma: no cover
-        fn, lno, func = "(unknown file)", 0, "(unknown function)"
-    if exc_info:
-        if isinstance(exc_info, BaseException):
-            exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
-        elif not isinstance(exc_info, tuple):
-            exc_info = sys.exc_info()
-    record = self.makeRecord(self.name, level, fn, lno, msg, args,
-                             exc_info, func, extra, sinfo)
 
-    record.fields = kwargs
-    self.handle(record)
+if sys.version >= (3, 0, 0):
+    def _log_patch(self, level, msg, args, exc_info=None, extra=None, stack_info=False, **kwargs):
+        from logging import _srcfile
+        sinfo = None
+        if _srcfile:
+            try:
+                fn, lno, func, sinfo = self.findCaller(stack_info)
+            except ValueError:  # pragma: no cover
+                fn, lno, func = "(unknown file)", 0, "(unknown function)"
+        else:  # pragma: no cover
+            fn, lno, func = "(unknown file)", 0, "(unknown function)"
+        if exc_info:
+            if isinstance(exc_info, BaseException):
+                exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
+            elif not isinstance(exc_info, tuple):
+                exc_info = sys.exc_info()
+        record = self.makeRecord(self.name, level, fn, lno, msg, args,
+                                 exc_info, func, extra, sinfo)
+
+        record.fields = kwargs
+        self.handle(record)
+else:
+    def _log_patch(self, level, msg, args, exc_info=None, extra=None, **kwargs):
+        from logging import _srcfile
+        if _srcfile:
+            #IronPython doesn't track Python frames, so findCaller raises an
+            #exception on some versions of IronPython. We trap it here so that
+            #IronPython can use logging.
+            try:
+                fn, lno, func = self.findCaller()
+            except ValueError:
+                fn, lno, func = "(unknown file)", 0, "(unknown function)"
+        else:
+            fn, lno, func = "(unknown file)", 0, "(unknown function)"
+        if exc_info:
+            if not isinstance(exc_info, tuple):
+                exc_info = sys.exc_info()
+        record = self.makeRecord(self.name, level, fn, lno, msg, args, exc_info, func, extra)
+
+        record.fields = kwargs
+        self.handle(record)
 
 
 logging.Logger._log = _log_patch
@@ -175,7 +197,10 @@ class ColoredStreamHandler(logging.StreamHandler):
                 self.isatty = False
 
         self._no_color = no_color
-
+        
+        if sys.version < (3, 0, 0):
+            self.terminator = '\n'
+            
     def emit(self, record):
         """
         Called by the :py:mod:`logging` module for each log record. Formats the
